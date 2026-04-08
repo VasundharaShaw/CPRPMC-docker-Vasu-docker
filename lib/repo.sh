@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # source lib/pyenv.sh
-source "$PROJECT_ROOT/lib/pyenv.sh"
+source "$PROJECT_ROOT/lib/docker.sh"
 export GITHUB_REPO
 
 
@@ -231,23 +231,27 @@ process_repo() {
     # Build requirements.txt for this repo
     process_requirements
 
-    # ---- pyenv: set up isolated Python environment -------------------------
+    # ---- Docker: set up isolated environment -------------------------------
     REQUIREMENTS_FILE="$REPO_NAME/requirements.txt"
 
-    if ! setup_pyenv_env "$REPO_NAME" "$REQUIREMENTS_FILE" "$SETUP_PATHS"; then
+    create_entrypoint "$REPO_NAME" "$NOTEBOOK_PATHS"
+    create_dockerfile "$REPO_NAME" "$REQUIREMENTS_FILE" "$SETUP_PATHS"
+    create_dockerignore "$REPO_NAME"
+
+    if ! build_docker_image "$REPO_NAME"; then
         REPO_TOTAL_TIME=$(elapsed_sec "$REPO_START_TIME")
         finalize_repository_run "$RUN_ID" "$ENV_ERROR_TYPE" "$ENV_ERROR_MESSAGE" "$REPO_TOTAL_TIME"
-        log "[ERROR] Skipping $REPO_NAME due to environment setup failure: $ENV_ERROR_MESSAGE"
-        cleanup_pyenv_env
+        log "[ERROR] Skipping $REPO_NAME due to Docker image build failure: $ENV_ERROR_MESSAGE"
+        cleanup_container "$REPO_NAME"
         return 0
     fi
 
-    # ---- pyenv: execute notebooks ------------------------------------------
-    if ! run_in_pyenv_env "$REPO_NAME"; then
+    # ---- Docker: execute notebooks -----------------------------------------
+    if ! run_docker_container "$REPO_NAME"; then
         analyze_env_error "$LOG_FILE"
         REPO_TOTAL_TIME=$(elapsed_sec "$REPO_START_TIME")
         finalize_repository_run "$RUN_ID" "$ENV_ERROR_TYPE" "$ENV_ERROR_MESSAGE" "$REPO_TOTAL_TIME"
-        cleanup_pyenv_env
+        cleanup_container "$REPO_NAME"
         return 0
     fi
     # ------------------------------------------------------------------------
@@ -260,8 +264,8 @@ process_repo() {
     # Comparison (unchanged)
     compare_notebook_outputs
 
-    # Clean up venv now that comparison is done
-    cleanup_pyenv_env
+    # Clean up container now that comparison is done
+    cleanup_container "$REPO_NAME"
 
     move_repo
     REPO_TOTAL_TIME=$(elapsed_sec "$REPO_START_TIME")
