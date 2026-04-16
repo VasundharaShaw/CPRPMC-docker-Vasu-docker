@@ -7,7 +7,7 @@
 # Institution: Chemnitz University of Technology
 # 
 # Description: Main pipeline orchestrating repository discovery, dependency
-#              extraction, Docker containerization, and reproducibility assessment
+#              extraction, and reproducibility assessment
 #
 # License: GPL-3.0 license
 # Repository: https://github.com/Sheeba-Samuel/computational-reproducibility-pmc-docker
